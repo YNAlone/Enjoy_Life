@@ -12,6 +12,7 @@ import com.hmdp.utils.UserHolder;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.aop.framework.AopContext;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.connection.stream.*;
@@ -52,6 +53,12 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     private StringRedisTemplate stringRedisTemplate;
     @Resource
     private RedissonClient redissonClient;
+
+//    注入RabbitMQ对象
+
+    @Resource
+    private RabbitTemplate rabbitTemplate;
+
     private static final DefaultRedisScript<Long> SECKILL_SCRIPT;
 
     static {
@@ -64,12 +71,12 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 
     private static final ExecutorService SECKILL_ORDER_EXECUTOR = Executors.newSingleThreadExecutor();
 
-    @PostConstruct
+/*    @PostConstruct
     public void init() {
         SECKILL_ORDER_EXECUTOR.submit(new VoucherOrderHandler());
-    }
+    }*/
 
-    private class VoucherOrderHandler implements Runnable {
+/*    private class VoucherOrderHandler implements Runnable {
         String queueName = "stream.orders";
         @Override
         public void run() {
@@ -138,7 +145,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
             }
 
         }
-    }
+    }*/
 
 //    private BlockingQueue<VoucherOrder> orderTasks = new ArrayBlockingQueue<>(1024 * 1024);
 //    private class VoucherOrderHandler implements Runnable {
@@ -157,7 +164,9 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 //        }
 //    }
 
-    private void handleVoucherOrder(VoucherOrder voucherOrder) {
+    private IVoucherOrderService proxy;
+
+    public void handleVoucherOrder(VoucherOrder voucherOrder) {
 //        1.获取用户
         Long userId = voucherOrder.getUserId();
 //        2.创建锁对象
@@ -179,31 +188,59 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         }
     }
 
-    private IVoucherOrderService proxy;
+
+//    @Override
+//    public Result seckillVoucher(Long voucherId) {
+////          获取用户
+//        Long userId = UserHolder.getUser().getId();
+//        Long orderId = redisIdWorker.nextId("order");
+//        //        1.执行lua脚本
+//        Long result = stringRedisTemplate.execute(
+//                SECKILL_SCRIPT,
+//                Collections.emptyList(),
+//                voucherId.toString(), userId.toString(), String.valueOf(orderId)
+//        );
+////        2.判断结果是否为0
+//        int r = result.intValue();
+//        //        2.1 不为0  无购买资格
+//        if (r != 0) {
+//            return Result.fail(r == 1 ? "库存不足" : "不能重复下单");
+//        }
+//
+////        3.获取代理对象
+//        proxy = (IVoucherOrderService) AopContext.currentProxy();
+////        4.返回订单id
+//        return Result.ok(orderId);
+//    }
+
+
+/*
+*   使用消息队列实现异步下单，首先调用Lua脚本判断是否有购买资格
+*   有资格则返回0 ， 将订单信息存入消息队列
+*   等待消息
+* */
     @Override
-    public Result seckillVoucher(Long voucherId) {
-//          获取用户
+    public Result seckillVoucher(Long voucherId){
+        //1.执行lua脚本，判断当前用户的购买资格
         Long userId = UserHolder.getUser().getId();
-        Long orderId = redisIdWorker.nextId("order");
-        //        1.执行lua脚本
         Long result = stringRedisTemplate.execute(
                 SECKILL_SCRIPT,
                 Collections.emptyList(),
-                voucherId.toString(), userId.toString(), String.valueOf(orderId)
-        );
-//        2.判断结果是否为0
-        int r = result.intValue();
-        //        2.1 不为0  无购买资格
-        if (r != 0) {
-            return Result.fail(r == 1 ? "库存不足" : "不能重复下单");
+                voucherId.toString(), userId.toString());
+        if (result != 0) {
+            //2.不为0说明没有购买资格
+            return Result.fail(result == 1 ? "库存不足" : "不能重复下单");
         }
-
-//        3.获取代理对象
-        proxy = (IVoucherOrderService) AopContext.currentProxy();
-//        4.返回订单id
+//        3.有购买资格，将订单存入消息队列
+        VoucherOrder voucherOrder = new VoucherOrder();
+        long orderId = redisIdWorker.nextId("order");
+        voucherOrder.setId(orderId);
+        voucherOrder.setUserId(userId);
+        voucherOrder.setVoucherId(voucherId);
+//        存入消息队列等待异步消费
+        rabbitTemplate.convertAndSend("hmdianping.direct" , "direct.sckill"  , voucherOrder);
         return Result.ok(orderId);
     }
-
 
 //    @Override
 //    public Result seckillVoucher(Long voucherId) {

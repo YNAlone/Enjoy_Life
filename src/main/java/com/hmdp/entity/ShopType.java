@@ -3,6 +3,8 @@ package com.hmdp.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
@@ -21,60 +23,43 @@ import java.time.LocalDateTime;
 @Data
 @EqualsAndHashCode(callSuper = false)
 @Accessors(chain = true)
-@TableName("tb_voucher_order")
-public class VoucherOrder implements Serializable {
+@TableName("tb_shop_type")
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class ShopType implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     /**
      * 主键
      */
-    @TableId(value = "id", type = IdType.INPUT)
+    @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
     /**
-     * 下单的用户id
+     * 类型名称
      */
-    private Long userId;
+    private String name;
 
     /**
-     * 购买的代金券id
+     * 图标
      */
-    private Long voucherId;
+    private String icon;
 
     /**
-     * 支付方式 1：余额支付；2：支付宝；3：微信
+     * 顺序
      */
-    private Integer payType;
+    private Integer sort;
 
     /**
-     * 订单状态，1：未支付；2：已支付；3：已核销；4：已取消；5：退款中；6：已退款
+     * 创建时间
      */
-    private Integer status;
-
-    /**
-     * 下单时间
-     */
+    @JsonIgnore
     private LocalDateTime createTime;
-
-    /**
-     * 支付时间
-     */
-    private LocalDateTime payTime;
-
-    /**
-     * 核销时间
-     */
-    private LocalDateTime useTime;
-
-    /**
-     * 退款时间
-     */
-    private LocalDateTime refundTime;
 
     /**
      * 更新时间
      */
+    @JsonIgnore
     private LocalDateTime updateTime;
 
 

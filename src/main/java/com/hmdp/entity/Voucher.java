@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
@@ -22,8 +23,10 @@ import java.time.LocalDateTime;
 @Data
 @EqualsAndHashCode(callSuper = false)
 @Accessors(chain = true)
-@TableName("tb_shop")
-public class Shop implements Serializable {
+@TableName("tb_voucher")
+@JsonIgnoreProperties(ignoreUnknown = true)
+
+public class Voucher implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
@@ -34,69 +37,67 @@ public class Shop implements Serializable {
     private Long id;
 
     /**
-     * 商铺名称
+     * 商铺id
      */
-    private String name;
+    private Long shopId;
 
     /**
-     * 商铺类型的id
+     * 代金券标题
      */
-    private Long typeId;
+    private String title;
 
     /**
-     * 商铺图片，多个图片以','隔开
+     * 副标题
      */
-    private String images;
+    private String subTitle;
 
     /**
-     * 商圈，例如陆家嘴
+     * 使用规则
      */
-    private String area;
+    private String rules;
 
     /**
-     * 地址
+     * 支付金额
      */
-    private String address;
+    private Long payValue;
 
     /**
-     * 经度
+     * 抵扣金额
      */
-    private Double x;
+    private Long actualValue;
 
     /**
-     * 维度
+     * 优惠券类型
      */
-    private Double y;
+    private Integer type;
 
     /**
-     * 均价，取整数
+     * 优惠券类型
      */
-    private Long avgPrice;
+    private Integer status;
+    /**
+     * 库存
+     */
+    @TableField(exist = false)
+    private Integer stock;
 
     /**
-     * 销量
+     * 生效时间
      */
-    private Integer sold;
+    @TableField(exist = false)
+    private LocalDateTime beginTime;
 
     /**
-     * 评论数量
+     * 失效时间
      */
-    private Integer comments;
-
-    /**
-     * 评分，1~5分，乘10保存，避免小数
-     */
-    private Integer score;
-
-    /**
-     * 营业时间，例如 10:00-22:00
-     */
-    private String openHours;
+    @TableField(exist = false)
+    private LocalDateTime endTime;
 
     /**
      * 创建时间
      */
     private LocalDateTime createTime;
+
 
     /**
      * 更新时间
@@ -104,6 +105,4 @@ public class Shop implements Serializable {
     private LocalDateTime updateTime;
 
 
-    @TableField(exist = false)
-    private Double distance;
 }

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
@@ -22,8 +23,9 @@ import java.time.LocalDateTime;
 @Data
 @EqualsAndHashCode(callSuper = false)
 @Accessors(chain = true)
-@TableName("tb_voucher")
-public class Voucher implements Serializable {
+@TableName("tb_blog")
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class Blog implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
@@ -32,69 +34,59 @@ public class Voucher implements Serializable {
      */
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
-
     /**
-     * 商铺id
+     * 商户id
      */
     private Long shopId;
+    /**
+     * 用户id
+     */
+    private Long userId;
+    /**
+     * 用户图标
+     */
+    @TableField(exist = false)
+    private String icon;
+    /**
+     * 用户姓名
+     */
+    @TableField(exist = false)
+    private String name;
+    /**
+     * 是否点赞过了
+     */
+    @TableField(exist = false)
+    private Boolean isLike;
 
     /**
-     * 代金券标题
+     * 标题
      */
     private String title;
 
     /**
-     * 副标题
+     * 探店的照片，最多9张，多张以","隔开
      */
-    private String subTitle;
+    private String images;
 
     /**
-     * 使用规则
+     * 探店的文字描述
      */
-    private String rules;
+    private String content;
 
     /**
-     * 支付金额
+     * 点赞数量
      */
-    private Long payValue;
+    private Integer liked;
 
     /**
-     * 抵扣金额
+     * 评论数量
      */
-    private Long actualValue;
-
-    /**
-     * 优惠券类型
-     */
-    private Integer type;
-
-    /**
-     * 优惠券类型
-     */
-    private Integer status;
-    /**
-     * 库存
-     */
-    @TableField(exist = false)
-    private Integer stock;
-
-    /**
-     * 生效时间
-     */
-    @TableField(exist = false)
-    private LocalDateTime beginTime;
-
-    /**
-     * 失效时间
-     */
-    @TableField(exist = false)
-    private LocalDateTime endTime;
+    private Integer comments;
 
     /**
      * 创建时间
      */
     private LocalDateTime createTime;
-
 
     /**
      * 更新时间
