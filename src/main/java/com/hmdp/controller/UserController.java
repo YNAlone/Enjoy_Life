@@ -51,8 +51,12 @@ public class UserController {
      */
     @PostMapping("/login")
     public Result login(@RequestBody LoginFormDTO loginForm, HttpSession session){
-        // TODO 实现登录功能
 //        return Result.fail("功能未完成");
+        String phone = loginForm.getPhone();
+        String password = loginForm.getPassword();
+        if(phone == null) {
+            return Result.fail("手机号为空");
+        }
         Result login = userService.login(loginForm,session);
         return Result.ok(login.getData());
     }

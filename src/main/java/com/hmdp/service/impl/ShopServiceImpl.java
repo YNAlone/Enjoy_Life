@@ -14,7 +14,6 @@ import com.hmdp.utils.CacheClient;
 import com.hmdp.utils.RedisConstants;
 import com.hmdp.utils.RedisData;
 import com.hmdp.utils.SystemConstants;
-import com.sun.org.apache.xpath.internal.operations.Bool;
 import org.springframework.data.geo.*;
 
 import org.springframework.data.redis.connection.RedisGeoCommands;

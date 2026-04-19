@@ -38,6 +38,7 @@ public class RabbitMQConfig {
             throw new RuntimeException(e);
         }
         System.out.println("监听到了" + message);
+
     }
 
     @Bean

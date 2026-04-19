@@ -164,6 +164,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 //        }
 //    }
 
+    @Resource
     private IVoucherOrderService proxy;
 
     public void handleVoucherOrder(VoucherOrder voucherOrder) {
@@ -238,7 +239,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         voucherOrder.setUserId(userId);
         voucherOrder.setVoucherId(voucherId);
 //        存入消息队列等待异步消费
-        rabbitTemplate.convertAndSend("hmdianping.direct" , "direct.sckill"  , voucherOrder);
+        rabbitTemplate.convertAndSend("hmdianping.direct" , "direct.seckill"  , voucherOrder);
         return Result.ok(orderId);
     }
 
