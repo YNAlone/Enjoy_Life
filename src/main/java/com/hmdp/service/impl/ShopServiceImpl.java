@@ -5,15 +5,13 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.github.benmanes.caffeine.cache.Cache;
 import com.hmdp.dto.Result;
 import com.hmdp.entity.Shop;
 import com.hmdp.mapper.ShopMapper;
 import com.hmdp.service.IShopService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.hmdp.utils.CacheClient;
-import com.hmdp.utils.RedisConstants;
-import com.hmdp.utils.RedisData;
-import com.hmdp.utils.SystemConstants;
+import com.hmdp.utils.*;
 import org.springframework.data.geo.*;
 
 import org.springframework.data.redis.connection.RedisGeoCommands;
@@ -44,10 +42,15 @@ import static com.hmdp.utils.RedisConstants.*;
 public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IShopService {
 
     @Resource
+    private TwoLevelCacheClient twoLevelCacheClient;
+    @Resource
+    private Cache<Long , Shop> shopCache;
+    @Resource
     private StringRedisTemplate stringRedisTemplate;
     @Resource
     private CacheClient cacheClient;
 
+/*
     @Override
     public Result queryById(Long id) {
 //        缓存穿透
@@ -64,7 +67,22 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
         return Result.ok(shop);
 
     }
+*/
 
+    @Override
+    public Result queryById(Long id) {
+        String redisKey = CACHE_SHOP_KEY + id;
+        Shop shop = twoLevelCacheClient.query(
+                shopCache,          // L1 Caffeine
+                redisKey,           // L2 Redis key
+                id,                 // 查询 id
+                Shop.class,         // 返回类型
+                this::getById,      // DB 查询
+                30L,                // Redis TTL
+                TimeUnit.MINUTES
+        );
+        return shop == null ? Result.fail("店铺不存在") : Result.ok(shop);
+    }
     /* private static final ExecutorService CACHE_REBUILD_EXECUTOR = Executors.newFixedThreadPool(10);
      public Shop queryWithLogicalExpire(Long id) {
  //        1.从Redis查询商铺缓存
@@ -215,7 +233,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
 
     }
 
-    @Override
+/*    @Override
     @Transactional
     public Result update(Shop shop) {
         Long id = shop.getId();
@@ -226,6 +244,14 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
         updateById(shop);
 //        2.删除缓存
         stringRedisTemplate.delete(CACHE_SHOP_KEY + id);
+        return Result.ok();
+    }*/
+
+    @Override
+    @Transactional
+    public Result update(Shop shop) {
+//        先更新数据库（Canal 会自动监听 binlog 触发缓存失效）
+        updateById(shop);
         return Result.ok();
     }
 
