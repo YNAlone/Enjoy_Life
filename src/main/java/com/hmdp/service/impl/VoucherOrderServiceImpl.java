@@ -12,6 +12,7 @@ import com.hmdp.utils.UserHolder;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
+import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.aop.framework.AopContext;
 import org.springframework.core.io.ClassPathResource;
@@ -20,6 +21,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.concurrent.ListenableFutureCallback;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
@@ -238,8 +240,30 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         voucherOrder.setId(orderId);
         voucherOrder.setUserId(userId);
         voucherOrder.setVoucherId(voucherId);
-//        存入消息队列等待异步消费
-        rabbitTemplate.convertAndSend("hmdianping.direct" , "direct.seckill"  , voucherOrder);
+//        4.存入消息队列等待异步消费
+//        4.1 创建CorrelationData
+        CorrelationData cd = new CorrelationData();
+//        4.2 给Future添加ConfirmCallback
+        cd.getFuture().addCallback(new ListenableFutureCallback<CorrelationData.Confirm>() {
+            @Override
+            public void onSuccess(CorrelationData.Confirm confirm) {
+//                4.3 消息发送成功的处理逻辑
+                if(confirm.isAck()) {
+                    log.debug("消息发送成功，收到ack！");
+                } else{
+                    log.error("消息发送失败，收到nack!\"+ confirm.getReason()");
+                }
+            }
+
+            @Override
+            public void onFailure(Throwable throwable) {
+//                4.2.2 消息发送失败时的处理逻辑
+                log.error("消息发送失败，发生异常！" + throwable.getMessage());
+            }
+        });
+
+
+        rabbitTemplate.convertAndSend("hmdianping.direct" , "direct.seckill"  , voucherOrder , cd);
         return Result.ok(orderId);
     }
 
