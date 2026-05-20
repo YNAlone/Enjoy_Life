@@ -97,8 +97,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         UserDTO userDTO = BeanUtil.copyProperties(user, UserDTO.class);
         Map<String,Object> userMap = BeanUtil.beanToMap(userDTO,new HashMap<>(),
                 CopyOptions.create()
-                        .setIgnoreNullValue( true)
-                        .setFieldValueEditor( (fieldName,fieldValue) -> fieldValue.toString()));
+                        .setIgnoreNullValue(true)
+                        .setFieldValueEditor((fieldName,fieldValue) -> fieldValue.toString()));
 //        7.3 存储
         stringRedisTemplate.opsForHash().putAll(LOGIN_USER_KEY + token,userMap);
 //        7.4 设置token有效期

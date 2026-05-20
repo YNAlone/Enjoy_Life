@@ -12,10 +12,12 @@ import com.hmdp.utils.UserHolder;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
+import com.hmdp.entity.SeckillVoucher;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.aop.framework.AopContext;
 import org.springframework.core.io.ClassPathResource;
+import java.time.LocalDateTime;
 import org.springframework.data.redis.connection.stream.*;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
@@ -218,52 +220,80 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 
 
 /*
-*   使用消息队列实现异步下单，首先调用Lua脚本判断是否有购买资格
-*   有资格则返回0 ， 将订单信息存入消息队列
-*   等待消息
+*   同步下单：直接查询DB判断资格、扣库存、创建订单，全程阻塞等待，用于与异步方案对比响应时间
 * */
+   /* @Override
+    public Result seckillVoucher(Long voucherId) {
+        // 1.查询秒杀券
+        SeckillVoucher voucher = seckillVoucherService.getById(voucherId);
+        // 2.判断秒杀是否开始
+        if (voucher.getBeginTime().isAfter(LocalDateTime.now())) {
+            return Result.fail("秒杀尚未开始");
+        }
+        // 3.判断秒杀是否结束
+        if (voucher.getEndTime().isBefore(LocalDateTime.now())) {
+            return Result.fail("秒杀已结束");
+        }
+        // 4.判断库存是否充足
+        if (voucher.getStock() < 1) {
+            return Result.fail("库存不足");
+        }
+        Long userId = UserHolder.getUser().getId();
+        // 5.获取分布式锁，保证一人一单
+        RLock lock = redissonClient.getLock("lock:order:" + userId);
+        boolean isLock = lock.tryLock();
+        if (!isLock) {
+            return Result.fail("请勿重复下单");
+        }
+        try {
+            VoucherOrder voucherOrder = new VoucherOrder();
+            long orderId = redisIdWorker.nextId("order");
+            voucherOrder.setId(orderId);
+            voucherOrder.setUserId(userId);
+            voucherOrder.setVoucherId(voucherId);
+            proxy.createVoucherOrder(voucherOrder);
+            return Result.ok(orderId);
+        } finally {
+            lock.unlock();
+        }
+    }
+//*/
+//*   使用消息队列实现异步下单，首先调用Lua脚本判断是否有购买资格
+//*   有资格则返回0 ， 将订单信息存入消息队列
+//*   等待消息
+//*
     @Override
     public Result seckillVoucher(Long voucherId){
-        //1.执行lua脚本，判断当前用户的购买资格
         Long userId = UserHolder.getUser().getId();
+
         Long result = stringRedisTemplate.execute(
                 SECKILL_SCRIPT,
                 Collections.emptyList(),
                 voucherId.toString(), userId.toString());
         if (result != 0) {
-            //2.不为0说明没有购买资格
             return Result.fail(result == 1 ? "库存不足" : "不能重复下单");
         }
-//        3.有购买资格，将订单存入消息队列
         VoucherOrder voucherOrder = new VoucherOrder();
         long orderId = redisIdWorker.nextId("order");
         voucherOrder.setId(orderId);
         voucherOrder.setUserId(userId);
         voucherOrder.setVoucherId(voucherId);
-//        4.存入消息队列等待异步消费
-//        4.1 创建CorrelationData
         CorrelationData cd = new CorrelationData();
-//        4.2 给Future添加ConfirmCallback
         cd.getFuture().addCallback(new ListenableFutureCallback<CorrelationData.Confirm>() {
             @Override
             public void onSuccess(CorrelationData.Confirm confirm) {
-//                4.3 消息发送成功的处理逻辑
                 if(confirm.isAck()) {
                     log.debug("消息发送成功，收到ack！");
                 } else{
-                    log.error("消息发送失败，收到nack!\"+ confirm.getReason()");
+                    log.error("消息发送失败，收到nack!");
                 }
             }
-
             @Override
             public void onFailure(Throwable throwable) {
-//                4.2.2 消息发送失败时的处理逻辑
                 log.error("消息发送失败，发生异常！" + throwable.getMessage());
             }
         });
-
-
-        rabbitTemplate.convertAndSend("hmdianping.direct" , "direct.seckill"  , voucherOrder , cd);
+        rabbitTemplate.convertAndSend("hmdianping.direct", "direct.seckill", voucherOrder, cd);
         return Result.ok(orderId);
     }
 
